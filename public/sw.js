@@ -1,6 +1,6 @@
 // Service worker mínimo: permite instalar la app y abrirla rápido.
 // Los datos (órdenes, menú) siempre vienen en vivo de Supabase.
-const CACHE = 'cd-v1'
+const CACHE = 'peltre-v3'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon-192.png'])))

@@ -4,6 +4,7 @@ import {
   Package, Receipt, Settings, Users, UtensilsCrossed, Wallet,
 } from 'lucide-react'
 import { PANTALLAS, pantallasDe, useSesion } from '../lib/sesion'
+import { MARCA } from '../lib/marca'
 import { ROLES } from '../lib/format'
 import { Modal } from './ui'
 
@@ -21,10 +22,10 @@ export const ICONOS = {
   ajustes: Settings,
 }
 
-export function Marca({ negocio = 'Carnitas Daniel', sub }) {
+export function Marca({ negocio = 'Mi negocio', sub }) {
   return (
     <div className="marca">
-      <span className="sello">CD</span>
+      <img className="logo" src={MARCA.logoClaro} alt="" width="40" height="40" />
       <div>
         <strong>{negocio}</strong>
         {sub && <span>{sub}</span>}
@@ -34,7 +35,7 @@ export function Marca({ negocio = 'Carnitas Daniel', sub }) {
 }
 
 export default function Shell({ pantalla, ir, alertas = {}, children }) {
-  const { empleado, salir } = useSesion()
+  const { empleado, salir, ajustes } = useSesion()
   const [mas, setMas] = useState(false)
   const lista = pantallasDe(empleado.rol)
   const principales = lista.length > 5 ? lista.slice(0, 4) : lista
@@ -43,7 +44,7 @@ export default function Shell({ pantalla, ir, alertas = {}, children }) {
   return (
     <div className="marco">
       <aside className="lateral">
-        <Marca sub={`${empleado.nombre}, ${ROLES[empleado.rol].toLowerCase()}`} />
+        <Marca negocio={ajustes.nombre_negocio || 'Mi negocio'} sub={`${empleado.nombre}, ${ROLES[empleado.rol].toLowerCase()}`} />
         <nav aria-label="Secciones">
           {lista.map((k) => {
             const Icono = ICONOS[k]
@@ -57,6 +58,7 @@ export default function Shell({ pantalla, ir, alertas = {}, children }) {
           })}
         </nav>
         <div className="pie">
+          <span className="firma"><img src={MARCA.logoClaro} alt="" width="16" height="16" /> {MARCA.nombre.toLowerCase()}</span>
           <button className="btn compacto" onClick={salir}>
             <LogOut size={16} /> Cambiar de usuario
           </button>

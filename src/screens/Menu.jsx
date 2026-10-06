@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Camera, FileSpreadsheet, Plus, Trash2 } from 'lucide-react'
+import { Camera, FileSpreadsheet, Images, Plus, Trash2 } from 'lucide-react'
 import { Pantalla } from '../components/Shell'
 import { Buscar, Campo, Confirmar, Foto, Interruptor, Modal, useAviso } from '../components/ui'
 import { q, useConsulta } from '../lib/data'
@@ -8,6 +8,7 @@ import { subirFotoProducto } from '../lib/imagen'
 import { supabase } from '../lib/supabase'
 import { useSesion } from '../lib/sesion'
 import { lempiras, mensajeError, numero, porcentaje } from '../lib/format'
+import { ILUSTRACIONES } from '../lib/marca'
 
 export default function Menu() {
   const { menu } = useSesion()
@@ -144,6 +145,7 @@ function EditarProducto({ producto, recetas, insumos, onCerrar, onGuardado }) {
   const [foto, setFoto] = useState(null) // { archivo, vista }
   const [ocupado, setOcupado] = useState(false)
   const [borrar, setBorrar] = useState(false)
+  const [galeria, setGaleria] = useState(false)
   const archivoRef = useRef(null)
   const nuevo = !producto.id
 
@@ -165,6 +167,7 @@ function EditarProducto({ producto, recetas, insumos, onCerrar, onGuardado }) {
         categoria_id: p.categoria_id ? Number(p.categoria_id) : null,
         activo: p.activo,
         disponible: p.disponible,
+        imagen_url: p.imagen_url || null,
       }
       let id = producto.id
       if (nuevo) {
@@ -210,8 +213,11 @@ function EditarProducto({ producto, recetas, insumos, onCerrar, onGuardado }) {
       <div className="subir-foto">
         <Foto producto={foto ? { ...p, imagen_url: foto.vista } : p} tam={110} />
         <div className="pila" style={{ gap: 6 }}>
-          <button className="btn" onClick={() => archivoRef.current.click()}><Camera size={18} /> {p.imagen_url || foto ? 'Cambiar foto' : 'Agregar foto'}</button>
-          <span className="suave chico">Toma la foto de arriba, con buena luz y el plato centrado.</span>
+          <div className="fila">
+            <button className="btn" onClick={() => archivoRef.current.click()}><Camera size={18} /> Tomar o subir foto</button>
+            <button className="btn" onClick={() => setGaleria(true)}><Images size={18} /> Elegir ilustración</button>
+          </div>
+          <span className="suave chico">Una foto real de tu plato vende más. Tómala desde arriba, con buena luz y el plato centrado.</span>
           <input ref={archivoRef} type="file" accept="image/*" className="oculto"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) setFoto({ archivo: f, vista: URL.createObjectURL(f) }) }} />
         </div>
@@ -275,6 +281,19 @@ function EditarProducto({ producto, recetas, insumos, onCerrar, onGuardado }) {
           <span className="nota">{margen < 40 && costo > 0 ? 'Bajo para comida: revisa precio o porciones' : `Por cada L 100 vendidos quedan L ${numero(margen)}`}</span></div>
       </div>
 
+      {galeria && (
+        <Modal ancho titulo="Elegir ilustración" onCerrar={() => setGaleria(false)}>
+          <div className="galeria">
+            {ILUSTRACIONES.map((il) => (
+              <button key={il.url} className={'galeria-item' + (p.imagen_url === il.url && !foto ? ' activo' : '')}
+                onClick={() => { setP({ ...p, imagen_url: il.url }); setFoto(null); setGaleria(false) }}>
+                <Foto producto={{ imagen_url: il.url }} tam={84} />
+                <span>{il.nombre}</span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
       {borrar && (
         <Confirmar
           titulo={`¿Quitar ${p.nombre} del menú?`}

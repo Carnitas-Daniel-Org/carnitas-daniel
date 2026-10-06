@@ -47,6 +47,10 @@ function Sistema({ empleado, salir }) {
     return () => window.removeEventListener('hashchange', onHash)
   }, [empleado.rol])
 
+  useEffect(() => {
+    if (ajustes.nombre_negocio) document.title = `${ajustes.nombre_negocio} | Peltre`
+  }, [ajustes.nombre_negocio])
+
   const valor = useMemo(() => ({ empleado, salir, ajustes, recargarAjustes, menu, ir }), [empleado, salir, ajustes, recargarAjustes, menu])
   const Vista = VISTAS[pantalla] || Mesas
 

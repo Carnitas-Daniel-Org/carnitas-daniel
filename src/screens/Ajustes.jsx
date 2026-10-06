@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { KeyRound, Plus, UserPlus } from 'lucide-react'
+import { BookOpen, KeyRound, Plus, UserPlus } from 'lucide-react'
 import { Pantalla } from '../components/Shell'
 import { Campo, Interruptor, Modal, Segmentos, useAviso } from '../components/ui'
 import { guardarAjustes, q, useConsulta } from '../lib/data'
 import { supabase } from '../lib/supabase'
 import { useSesion } from '../lib/sesion'
 import { ROLES, mensajeError } from '../lib/format'
+import { cargarPlantilla, PRODUCTOS } from '../lib/plantilla'
 
 export default function Ajustes() {
   const [vista, setVista] = useState('negocio')
@@ -46,6 +47,7 @@ function BotonGuardar({ datos }) {
 function Negocio() {
   const [f, set] = useFormulario(['nombre_negocio', 'rtn', 'direccion', 'telefono', 'correo', 'mensaje_pie', 'num_mesas'])
   return (
+    <>
     <section className="panel pila">
       <h2>Datos del negocio</h2>
       <p className="suave chico">Aparecen en los recibos y facturas.</p>
@@ -59,6 +61,36 @@ function Negocio() {
       <Campo etiqueta="Mensaje al pie del recibo"><input className="entrada" value={f.mensaje_pie} onChange={set('mensaje_pie')} /></Campo>
       <Campo etiqueta="Número de mesas"><input className="entrada" inputMode="numeric" value={f.num_mesas} onChange={set('num_mesas')} style={{ maxWidth: 140 }} /></Campo>
       <div className="fila fin"><BotonGuardar datos={f} /></div>
+    </section>
+    <Plantilla />
+    </>
+  )
+}
+
+function Plantilla() {
+  const { menu } = useSesion()
+  const avisar = useAviso()
+  const [ocupado, setOcupado] = useState(false)
+  const cargar = async () => {
+    setOcupado(true)
+    try {
+      const r = await cargarPlantilla()
+      menu.recargar()
+      avisar(r.agregados ? `Menú de ejemplo cargado: ${r.agregados} cosas nuevas` : 'El menú de ejemplo ya estaba completo', 'ok')
+    } catch (e) {
+      avisar(mensajeError(e), 'error')
+    } finally {
+      setOcupado(false)
+    }
+  }
+  return (
+    <section className="panel pila">
+      <div className="fila"><BookOpen size={20} /><h2>Menú de ejemplo</h2></div>
+      <p className="suave chico">
+        Agrega un menú típico hondureño con ilustraciones, recetas e insumos: {PRODUCTOS.length} productos entre platos, alitas,
+        frescos naturales y gaseosas. Solo agrega lo que falta y no borra nada. Después cambia precios y nombres en Menú.
+      </p>
+      <div className="fila fin"><button className="btn primario" disabled={ocupado} onClick={cargar}>{ocupado ? 'Cargando…' : 'Cargar menú de ejemplo'}</button></div>
     </section>
   )
 }
@@ -103,7 +135,8 @@ function Facturacion() {
 }
 
 function Empleados() {
-  const { empleado } = useSesion()
+  const { empleado, ajustes, recargarAjustes } = useSesion()
+  const pedirPin = ajustes.pedir_pin === 'si'
   const avisar = useAviso()
   const [editar, setEditar] = useState(null)
   const [miPin, setMiPin] = useState('')
@@ -113,7 +146,7 @@ function Empleados() {
     try {
       await q(supabase.rpc('guardar_empleado', {
         p_auth_id: empleado.id,
-        p_auth_pin: miPin,
+        p_auth_pin: pedirPin ? miPin : '',
         p: { id: editar.id ?? null, nombre: editar.nombre, rol: editar.rol, pin: editar.pin || '', activo: editar.activo },
       }))
       avisar('Empleado guardado', 'ok')
@@ -130,9 +163,17 @@ function Empleados() {
       <div className="fila entre">
         <div>
           <h2>Empleados</h2>
-          <p className="suave chico">Cada persona entra con su propio PIN. Así sabes quién tomó, cobró o anuló cada cosa.</p>
+          <p className="suave chico">Cada persona entra con su nombre. Así sabes quién tomó, cobró o anuló cada cosa.</p>
         </div>
         <button className="btn primario" onClick={() => setEditar({ nombre: '', rol: 'mesero', pin: '', activo: true })}><UserPlus size={18} /> Empleado</button>
+      </div>
+      <div className={'aviso-banda ' + (pedirPin ? 'verde' : 'maiz')}>
+        <Interruptor marcado={pedirPin} onCambio={async (v) => {
+          try { await guardarAjustes({ pedir_pin: v ? 'si' : 'no' }); recargarAjustes(); avisar(v ? 'Ahora se pide PIN al entrar' : 'Se entra sin PIN', 'ok') } catch (e) { avisar(mensajeError(e), 'error') }
+        }}>Pedir PIN al entrar</Interruptor>
+        <span className="chico" style={{ flex: 1 }}>
+          {pedirPin ? 'Cada empleado marca su PIN de 4 números.' : 'Modo prueba: cualquiera entra tocando un nombre. Actívalo antes de usarlo en el negocio.'}
+        </span>
       </div>
       <ul className="lista-simple">
         {(datos || []).map((e) => (
@@ -145,7 +186,7 @@ function Empleados() {
       <p className="suave chico">Los empleados desactivados no aparecen en la pantalla de entrada.</p>
       {editar && (
         <Modal titulo={editar.id ? editar.nombre : 'Nuevo empleado'} onCerrar={() => setEditar(null)}
-          pie={<button className="btn primario bloque" disabled={!editar.nombre.trim() || miPin.length < 4 || (!editar.id && editar.pin.length !== 4)} onClick={guardar}>
+          pie={<button className="btn primario bloque" disabled={!editar.nombre.trim() || (pedirPin && (miPin.length < 4 || (!editar.id && editar.pin.length !== 4)))} onClick={guardar}>
             <Plus size={18} /> Guardar
           </button>}>
           <Campo etiqueta="Nombre"><input className="entrada" value={editar.nombre} onChange={(e) => setEditar({ ...editar, nombre: e.target.value })} autoFocus /></Campo>
@@ -154,17 +195,21 @@ function Empleados() {
               {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </Campo>
-          <Campo etiqueta={editar.id ? 'PIN nuevo (déjalo vacío para no cambiarlo)' : 'PIN de 4 números'}>
+          <Campo etiqueta={editar.id ? 'PIN nuevo (déjalo vacío para no cambiarlo)' : 'PIN de 4 números'} ayuda={pedirPin ? null : 'Opcional mientras no se pida PIN. Si lo dejas vacío queda 0000.'}>
             <input className="entrada cifra" style={{ fontSize: '1.3rem', letterSpacing: '.3em' }} inputMode="numeric" maxLength={4}
               value={editar.pin} onChange={(e) => setEditar({ ...editar, pin: e.target.value.replace(/\D/g, '') })} />
           </Campo>
           {editar.id && editar.id !== empleado.id && (
             <Interruptor marcado={editar.activo} onCambio={(v) => setEditar({ ...editar, activo: v })}>Activo</Interruptor>
           )}
-          <div className="separador" />
-          <Campo etiqueta="Tu PIN de dueño para confirmar">
-            <input className="entrada" type="password" inputMode="numeric" maxLength={4} value={miPin} onChange={(e) => setMiPin(e.target.value.replace(/\D/g, ''))} />
-          </Campo>
+          {pedirPin && (
+            <>
+              <div className="separador" />
+              <Campo etiqueta="Tu PIN de dueño para confirmar">
+                <input className="entrada" type="password" inputMode="numeric" maxLength={4} value={miPin} onChange={(e) => setMiPin(e.target.value.replace(/\D/g, ''))} />
+              </Campo>
+            </>
+          )}
         </Modal>
       )}
     </section>

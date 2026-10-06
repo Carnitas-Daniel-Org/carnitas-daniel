@@ -1,11 +1,17 @@
-# Carnitas Daniel · Sistema del negocio — contexto para Claude
+# Peltre (cliente piloto: Carnitas Daniel) — contexto para Claude
 
 Claude Code lee este archivo automáticamente al abrir el proyecto. Mantenerlo al día con cada cambio importante.
 
 ## Qué es
 Sistema completo para **Carnitas Daniel** (negocio de comida en San Pedro Sula, Honduras): pedidos por mesa y para llevar, cocina en tiempo real, caja con cobro y cierre, facturación (recibo interno o factura SAR), inventario con recetas, gastos, clientes y reportes. Es una PWA: se instala desde el navegador y se usa en teléfonos, tablets y computadoras.
 
-Es el **cliente piloto** de la idea de Eduardo: un SaaS para negocios de comida en Honduras. Las decisiones deben pensar en que después habrá varios negocios.
+Es el **cliente piloto** de **Peltre**, el SaaS de Eduardo para negocios de comida en Honduras. Eduardo lo va a vender a otros negocios: la marca del sistema (Peltre) es independiente del negocio que lo usa. El nombre del negocio sale de `ajustes.nombre_negocio`, nunca va fijo en el código.
+
+## Marca Peltre
+- Nombre y rutas en `src/lib/marca.js` (cambiar el nombre ahí). Logo: plato de peltre blanco con filete cobalto y una despostilladura.
+- `scripts/marca.py` genera `public/marca/*.svg`, `public/favicon.svg` y los íconos PNG de la app (usa playwright).
+- `scripts/ilustraciones.py` genera las ilustraciones propias de productos en `public/ilustraciones/*.svg` (comida vista desde arriba en plato; frescos naturales en botella de 500 ml estilo hondureño; gaseosas por sabor **sin logos de marcas**). Para agregar una: escribir la función, llamarla en `__main__`, correr el script y agregarla a `ILUSTRACIONES` en `marca.js`.
+- Productos sin foto muestran `generico.svg`. En Menú se puede tomar foto o elegir ilustración.
 
 - Dueño del proyecto: Eduardo (freelancer, SPS). Hablarle en **español**, conciso y directo.
 - En producción: https://carnitas-daniel.vercel.app
@@ -35,7 +41,8 @@ supabase/schema.sql       esquema v1
 supabase/migrations/002_sistema_completo.sql   esquema v2 (referencia; se aplicó en 3 partes sin DROP)
 ```
 
-## Roles (cada empleado entra con su nombre + PIN de 4 dígitos)
+## Roles (cada empleado toca su nombre; PIN de 4 dígitos opcional)
+- `ajustes.pedir_pin` = `no` (modo prueba, actual: se entra tocando el nombre) o `si`. Se cambia en Ajustes → Empleados. Si falta el ajuste, se entra sin PIN. Con `pedir_pin = no`, `guardar_empleado` no exige el PIN del dueño.
 - **Dueño:** todo.
 - **Caja:** pedidos, caja, facturas, gastos, clientes.
 - **Mesero:** pedidos.
@@ -50,14 +57,16 @@ Empleados iniciales (cambiar PIN en Ajustes → Empleados): Daniel/dueño 0000, 
 - `insumos`, `recetas` (producto → insumo, cantidad), `movimientos_inventario` (compra, venta, ajuste, merma, devolucion). Triggers: cada movimiento ajusta stock; vender descuenta por receta; cancelar devuelve.
 - `caja_sesiones` (una abierta a la vez), `movimientos_caja`. Funciones `resumen_caja`, `cerrar_caja` (arqueo).
 - `facturas` + `factura_items`. `cobrar(jsonb)`: correlativo con bloqueo, descuento, ISV (incluido o agregado), recibo `R-000001` o factura `prefijo + 8 dígitos` con CAI/rango/fecha límite. `anular_factura` (motivo; las órdenes vuelven a quedar por cobrar).
-- `gastos`, `clientes`, `ajustes` (clave/valor: datos del negocio, ISV, CAI, rangos, correlativos, num_mesas).
+- `gastos`, `clientes`, `ajustes` (clave/valor: datos del negocio, ISV, CAI, rangos, correlativos, num_mesas, pedir_pin).
+- Menú de ejemplo hondureño en `src/lib/plantilla.js` (platos, alitas, tacos, extras, frescos naturales, gaseosas y agua, con insumos y recetas). Ajustes → Negocio → "Cargar menú de ejemplo" agrega solo lo que falta. Pensado para dar de alta negocios nuevos.
 - RLS: modo prueba (`acceso_prueba` permite todo a anon) excepto `empleados`.
 
 ## Decisiones tomadas
 - Diseño "Peltre": vajilla de peltre (blanco + borde azul cobalto). Una familia tipográfica (Archivo, eje de ancho: títulos anchos, cifras condensadas). Evitar: crema + terracota, mayúsculas en etiquetas, separadores con punto medio.
 - Utilidad neta = ventas sin ISV − costo por recetas − gastos de operación. Los gastos en "Insumos y compras" NO se restan otra vez (ya están en el costo).
 - Cobrar no cambia el estado de cocina; la mesa se libera cuando todas sus órdenes están cobradas.
-- Migraciones sin `DROP` (la aprobación automática los rechaza): usar `create or replace`, `add column if not exists`.
+- Migraciones sin `DROP` (la aprobación automática los rechaza): usar `create or replace`, `add column if not exists`. Las herramientas de Supabase a veces cancelan SQL con varias instrucciones: mandar una instrucción por llamada.
+- Imágenes: ilustraciones propias (SVG) en vez de fotos de internet; nada de logos o diseños de marcas reales (Coca-Cola, etc.). Lo ideal es que cada negocio suba fotos reales de sus platos.
 
 ## Limitaciones conocidas / pendientes
 - Seguridad de prueba: RLS abierta a anon. Antes de vender a otros negocios: Supabase Auth + RLS por negocio (`negocio_id` en todas las tablas).

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X } from 'lucide-react'
-import { iniciales } from '../lib/format'
+import { ILUSTRACION_GENERICA } from '../lib/marca'
 
 /* ---------- Avisos (toasts) ---------- */
 const AvisoContext = createContext(() => {})
@@ -156,13 +156,10 @@ export function Cargando({ texto = 'Cargando…' }) {
 
 export function Foto({ producto, tam, cuadrada = false }) {
   const [rota, setRota] = useState(false)
+  const url = producto?.imagen_url && !rota ? producto.imagen_url : ILUSTRACION_GENERICA
   return (
     <div className={'foto' + (cuadrada ? ' cuadrada' : '')} style={tam ? { width: tam } : undefined}>
-      {producto?.imagen_url && !rota ? (
-        <img src={producto.imagen_url} alt="" loading="lazy" onError={() => setRota(true)} />
-      ) : (
-        <span className="ini">{iniciales(producto?.nombre)}</span>
-      )}
+      <img src={url} alt="" loading="lazy" onError={() => setRota(true)} />
     </div>
   )
 }
