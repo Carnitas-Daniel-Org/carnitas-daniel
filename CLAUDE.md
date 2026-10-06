@@ -11,7 +11,7 @@ Dueño del proyecto: Eduardo (freelancer, SPS). Idioma de la app y de la comunic
 - **Frontend:** React 19 + Vite, JavaScript (sin TypeScript), CSS plano en `src/index.css`. Sin router: la pantalla depende del rol en sesión.
 - **Base de datos y tiempo real:** Supabase (org "novawebstudio-HN's Org", proyecto `carnitas-daniel`, ref `ggapikqvutrzgkgnevcc`, región us-east-1).
 - **Hosting:** Vercel (cuenta Hobby de Eduardo), deploy automático desde GitHub.
-- **Repo:** GitHub, cuenta personal `novawebstudio-HN`, repo `carnitas-daniel`.
+- **Repo:** GitHub, organización `Carnitas-Daniel-Org`, repo privado `carnitas-daniel`.
 
 ## Estructura
 ```
