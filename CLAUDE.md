@@ -1,68 +1,74 @@
-# Carnitas Daniel · Sistema de pedidos — contexto para Claude
+# Carnitas Daniel · Sistema del negocio — contexto para Claude
 
-Este archivo lo lee Claude Code automáticamente al abrir el proyecto. Mantenerlo al día cuando cambie algo importante.
+Claude Code lee este archivo automáticamente al abrir el proyecto. Mantenerlo al día con cada cambio importante.
 
 ## Qué es
-PWA (app web instalable en el teléfono) para que los meseros de **Carnitas Daniel** (negocio de comida en San Pedro Sula, Honduras) manden órdenes a cocina en tiempo real. Es el **primer cliente piloto** de una idea más grande de Eduardo: un SaaS/POS para negocios de comida en Honduras (ver "Visión" abajo).
+Sistema completo para **Carnitas Daniel** (negocio de comida en San Pedro Sula, Honduras): pedidos por mesa y para llevar, cocina en tiempo real, caja con cobro y cierre, facturación (recibo interno o factura SAR), inventario con recetas, gastos, clientes y reportes. Es una PWA: se instala desde el navegador y se usa en teléfonos, tablets y computadoras.
 
-Dueño del proyecto: Eduardo (freelancer, SPS). Idioma de la app y de la comunicación con Eduardo: **español**. Respuestas concisas y directas.
+Es el **cliente piloto** de la idea de Eduardo: un SaaS para negocios de comida en Honduras. Las decisiones deben pensar en que después habrá varios negocios.
+
+- Dueño del proyecto: Eduardo (freelancer, SPS). Hablarle en **español**, conciso y directo.
+- En producción: https://carnitas-daniel.vercel.app
 
 ## Stack (todo en plan gratuito)
-- **Frontend:** React 19 + Vite, JavaScript (sin TypeScript), CSS plano en `src/index.css`. Sin router: la pantalla depende del rol en sesión.
-- **Base de datos y tiempo real:** Supabase (org "novawebstudio-HN's Org", proyecto `carnitas-daniel`, ref `ggapikqvutrzgkgnevcc`, región us-east-1).
-- **Hosting:** Vercel (cuenta Hobby de Eduardo), deploy automático desde GitHub.
-- **Repo:** GitHub, organización `Carnitas-Daniel-Org`, repo privado `carnitas-daniel`.
+- **Frontend:** React 19 + Vite, JavaScript, CSS plano (`src/index.css`). Sin router: la pantalla vive en el hash (`#caja`, `#reportes`) y depende del rol.
+- **Librerías:** `@supabase/supabase-js`, `lucide-react` (íconos), `recharts` (gráficas, solo en Inicio/Reportes), `write-excel-file` (Excel, se carga solo al exportar). Pantallas con `React.lazy`.
+- **Base de datos:** Supabase. Org "novawebstudio-HN's Org", proyecto `carnitas-daniel`, ref `ggapikqvutrzgkgnevcc`, us-east-1. Storage: bucket público `productos` para fotos.
+- **Hosting:** Vercel (cuenta Hobby de Eduardo, proyecto `carnitas-daniel`). Deploy automático con cada push a `main`.
+- **Repo:** GitHub `Carnitas-Daniel-Org/carnitas-daniel` (público; Vercel Hobby no publica repos privados de organizaciones). No hay secretos en el código: la llave de Supabase es pública por diseño y los PIN viven en la base de datos con hash.
 
 ## Estructura
 ```
 src/
-  App.jsx              sesión (localStorage) → Login / Mesero / Cocina / Admin
-  lib/supabase.js      cliente Supabase (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
-  lib/useOrdenes.js    useOrdenes(): órdenes del día + realtime; useMenu(): categorías, productos, ajustes
-  lib/format.js        lempiras(), hora(), beep(), etiquetas de estado
-  screens/Login.jsx    elegir rol + PIN (VITE_PIN_STAFF, VITE_PIN_ADMIN; defaults 1234 / 0000)
-  screens/Mesero.jsx   nueva orden (mesa o para llevar, productos, notas) + "mis órdenes" con aviso cuando está lista
-  screens/Cocina.jsx   tablero de comandas, Empezar → Lista, sonido en órdenes nuevas, minutos de espera, wake lock
-  screens/Admin.jsx    ventas del día, editar menú y precios, número de mesas
-public/                manifest, sw.js (service worker mínimo), íconos
-supabase/schema.sql    esquema completo (fuente de verdad de la base de datos)
+  App.jsx                 sesión (localStorage cd_sesion_v2) → Login o Sistema; contexto con empleado, ajustes, menú, ir()
+  lib/supabase.js         cliente (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+  lib/data.js             useConsulta (carga + tiempo real + recarga), useAjustes, useMenu, useOrdenesActivas, useCajaAbierta, agruparCuentas
+  lib/sesion.js           PANTALLAS y qué rol ve cada una
+  lib/analitica.js        todas las cifras de reportes (ventas, utilidad, por día/hora/producto/mesero...)
+  lib/export.js           Excel multi-hoja y CSV
+  lib/imagen.js           comprime y sube fotos de productos
+  lib/format.js           lempiras, fechas, beep, textos de estados/roles/métodos
+  components/             Shell (barra lateral / navegación móvil), ui (Modal, Campo, Cifra, imprimir...), Comanda (armar pedido),
+                          Cobrar (cobro + recibo), Recibo (ticket 80 mm), RangoFechas, Graficas
+  screens/                Login, Inicio, Mesas, Cocina, Caja, Facturas, Menu, Inventario, Gastos, Reportes, Clientes, Ajustes
+supabase/schema.sql       esquema v1
+supabase/migrations/002_sistema_completo.sql   esquema v2 (referencia; se aplicó en 3 partes sin DROP)
 ```
 
-## Modelo de datos
-- `categorias`, `productos` (precio en Lempiras, `activo` para ocultar)
-- `ordenes` (tipo mesa|llevar, mesa, cliente, mesero, nota, estado, total)
-- `orden_items` (copia nombre y precio al momento de la venta)
-- `ajustes` (clave/valor: `num_mesas`, `nombre_negocio`)
-- Función `crear_orden(payload jsonb)`: crea orden + items en una transacción y calcula el total con precios de la BD.
-- Estados: `pendiente` → `preparando` → `lista` → `entregada` (o `cancelada`).
-- Realtime activado en `ordenes` y `orden_items`.
+## Roles (cada empleado entra con su nombre + PIN de 4 dígitos)
+- **Dueño:** todo.
+- **Caja:** pedidos, caja, facturas, gastos, clientes.
+- **Mesero:** pedidos.
+- **Cocina:** cocina e inventario.
+Empleados iniciales (cambiar PIN en Ajustes → Empleados): Daniel/dueño 0000, Caja 2222, Mesero 1 1234, Cocina 3333.
+
+## Modelo de datos (resumen)
+- `empleados` (pin_hash con pgcrypto; sin acceso directo de anon). Funciones: `empleados_login()`, `verificar_pin(id, pin)`, `guardar_empleado(auth_id, auth_pin, jsonb)`.
+- `categorias`, `productos` (imagen_url, descripcion, costo, disponible, activo).
+- `ordenes` (tipo mesa|llevar, es_delivery, mesa, cliente, telefono, direccion, cliente_id, mesero, empleado_id, estado, total, preparando_at, lista_at, entregada_at, factura_id) + `orden_items` (snapshot de nombre, precio, costo, categoria).
+- `crear_orden(jsonb)`: crea orden + items, guarda cliente si hay teléfono, toma precio y costo de la BD.
+- `insumos`, `recetas` (producto → insumo, cantidad), `movimientos_inventario` (compra, venta, ajuste, merma, devolucion). Triggers: cada movimiento ajusta stock; vender descuenta por receta; cancelar devuelve.
+- `caja_sesiones` (una abierta a la vez), `movimientos_caja`. Funciones `resumen_caja`, `cerrar_caja` (arqueo).
+- `facturas` + `factura_items`. `cobrar(jsonb)`: correlativo con bloqueo, descuento, ISV (incluido o agregado), recibo `R-000001` o factura `prefijo + 8 dígitos` con CAI/rango/fecha límite. `anular_factura` (motivo; las órdenes vuelven a quedar por cobrar).
+- `gastos`, `clientes`, `ajustes` (clave/valor: datos del negocio, ISV, CAI, rangos, correlativos, num_mesas).
+- RLS: modo prueba (`acceso_prueba` permite todo a anon) excepto `empleados`.
 
 ## Decisiones tomadas
-- PWA en vez de app nativa: sin App Store, se instala desde el navegador.
-- Cero costo mientras se prueba.
-- Diseño sobrio (fondo claro, un color de acento terracota), botones grandes, pocos clics. Lección del análisis de Kryo: nada de neón ni pantallas cargadas.
-- El menú cargado es **de ejemplo**; los precios reales se editan desde Admin.
+- Diseño "Peltre": vajilla de peltre (blanco + borde azul cobalto). Una familia tipográfica (Archivo, eje de ancho: títulos anchos, cifras condensadas). Evitar: crema + terracota, mayúsculas en etiquetas, separadores con punto medio.
+- Utilidad neta = ventas sin ISV − costo por recetas − gastos de operación. Los gastos en "Insumos y compras" NO se restan otra vez (ya están en el costo).
+- Cobrar no cambia el estado de cocina; la mesa se libera cuando todas sus órdenes están cobradas.
+- Migraciones sin `DROP` (la aprobación automática los rechaza): usar `create or replace`, `add column if not exists`.
 
-## Limitaciones conocidas (modo prueba)
-- **Seguridad:** el acceso es por PIN dentro de la app y las políticas RLS permiten todo a `anon`. Suficiente para probar; antes de uso real con varios negocios, pasar a Supabase Auth y RLS por negocio.
-- Sin modo offline real: si el WiFi del local falla, las órdenes no llegan.
-- Supabase gratis pausa el proyecto tras ~1 semana sin uso; se reactiva desde el dashboard.
-- Sin cobro/método de pago, sin facturación SAR, sin impresora de comandas.
-
-## Pendientes / ideas siguientes
-1. Probar un día real con Carnitas Daniel en paralelo al cuaderno.
-2. Conseguir menú y precios reales, número de mesas.
-3. Cierre de caja (efectivo vs. transferencia).
-4. Pedidos por WhatsApp / para llevar con teléfono del cliente.
-5. Usuarios reales (Supabase Auth) y multi-negocio → base del SaaS.
-
-## Visión (SaaS para negocios de comida en Honduras)
-- Competencia real: Loyverse (gratis). Diferenciarse en lo local: cierre de caja claro, pedidos de WhatsApp, costo por plato, Android barato, facturación SAR como plan de pago.
-- Validar con negocios reales antes de construir de más.
+## Limitaciones conocidas / pendientes
+- Seguridad de prueba: RLS abierta a anon. Antes de vender a otros negocios: Supabase Auth + RLS por negocio (`negocio_id` en todas las tablas).
+- Sin modo offline: si cae el internet no se pueden enviar pedidos.
+- Supabase gratis pausa el proyecto tras ~1 semana sin uso.
+- Facturación SAR: el sistema arma el documento con CAI y rango, pero Eduardo debe confirmar con un contador/imprenta autorizada que el formato cumple. Sin CAI solo emite recibos internos.
+- Ideas siguientes: impresora térmica Bluetooth para comandas, dividir cuenta, propinas, pedidos por WhatsApp, modificadores (extra queso, sin cebolla como botones), reportes por correo, multi-sucursal, modo offline.
 
 ## Comandos
 ```
 npm install
-npm run dev      # local en http://localhost:5173 (requiere .env.local)
+npm run dev      # http://localhost:5173 (requiere .env.local con las variables de .env.example)
 npm run build
 ```
